@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clase 3D: Obstetra Mikaela - 50 Alumnos y 50 Niveles</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; overflow: hidden; }
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        .ui-layer { position: relative; z-index: 10; pointer-events: none; }
+        .interactive { pointer-events: auto; }
+        
+        @keyframes slideInFromBottom {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes slideInFromRight {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .animate-slide-up { animation: slideInFromBottom 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-slide-right { animation: slideInFromRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        @keyframes pulseHand { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
+        .hand-raising-alert { animation: pulseHand 1.5s infinite; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen w-screen flex flex-col justify-between selection:bg-rose-500 selection:text-white">
+
+    <!-- Three.js 3D Classroom Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Overlay Layer -->
+    <div class="ui-layer h-full w-full flex flex-col justify-between pointer-events-none p-4 md:p-6">
+        
+        <!-- Top Navigation & Scoreboard -->
+        <header class="interactive bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl p-4 shadow-2xl flex flex-wrap justify-between items-center gap-4 max-w-7xl mx-auto w-full">
+            <div class="flex items-center space-x-3">
+                <div class="bg-rose-900/40 p-2.5 rounded-xl border border-rose-700/50 text-rose-400">
+                    <i class="fa-solid fa-chalkboard text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-base md:text-lg tracking-tight text-white flex items-center gap-2">
+                        Clase 3D: Obstetra Mikaela <span class="text-[10px] bg-rose-900/50 text-rose-300 border border-rose-700/50 px-2 py-0.5 rounded-full font-medium">50 Alumnos / 50 Niveles</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Métodos Anticonceptivos y Salud Sexual en el Aula</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-3 bg-slate-950/90 px-4 py-2 rounded-xl border border-slate-800">
+                <div class="text-center">
+                    <span class="block text-[9px] uppercase font-semibold text-slate-400 tracking-wider">Puntaje</span>
+                    <span id="score-display" class="font-bold text-rose-400 text-base">0</span>
+                </div>
+                <div class="h-6 w-px bg-slate-800"></div>
+                <div class="text-center">
+                    <span class="block text-[9px] uppercase font-semibold text-slate-400 tracking-wider">Nivel Clase</span>
+                    <span id="level-display" class="font-bold text-amber-400 text-base">1 / 50</span>
+                </div>
+                <div class="h-6 w-px bg-slate-800"></div>
+                <div class="text-center">
+                    <span class="block text-[9px] uppercase font-semibold text-slate-400 tracking-wider">Racha</span>
+                    <span id="streak-display" class="font-bold text-emerald-400 text-base">🔥 0</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Center Start Modal, Sliding Quiz Modal & Results Modal -->
+        <div class="flex-grow flex items-center justify-center p-4">
+            
+            <!-- Welcome Modal -->
+            <div id="start-screen" class="interactive bg-slate-900/98 backdrop-blur-md border border-slate-800 rounded-3xl p-6 md:p-10 shadow-2xl max-w-xl w-full text-center space-y-6 animate-slide-up">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-tr from-rose-800 to-rose-600 shadow-xl text-white text-3xl mb-1">
+                    <i class="fa-solid fa-user-doctor"></i>
+                </div>
+                <h2 class="text-2xl md:text-3xl font-extrabold text-white">Clase Magistral con la Obstetra Mikaela</h2>
+                <p class="text-slate-300 text-xs md:text-sm leading-relaxed">
+                    Te encuentras al frente del aula equipada con pizarra y 50 estudiantes debidamente sentados (con cabeza, ojos, torso, brazos, manos, piernas y pies). Los alumnos levantarán la mano gradualmente en 50 niveles. Haz clic sobre el estudiante que alce la mano para absolver su consulta anticonceptiva.
+                </p>
+                <button onclick="startGame()" class="w-full py-4 bg-gradient-to-r from-rose-700 to-rose-600 hover:from-rose-600 hover:to-rose-500 text-white font-bold rounded-2xl shadow-lg transition-all transform hover:-translate-y-0.5">
+                    <i class="fa-solid fa-play mr-2"></i> Iniciar Clase en el Aula
+                </button>
+            </div>
+
+            <!-- Sliding Quiz Modal (Hidden initially) -->
+            <div id="quiz-container" class="interactive hidden bg-slate-900/99 backdrop-blur-md border border-rose-600/50 rounded-3xl p-5 md:p-6 shadow-2xl max-w-xl w-full space-y-4 animate-slide-up max-h-[85vh] flex flex-col">
+                <div class="flex justify-between items-center pb-2.5 border-b border-slate-800 shrink-0">
+                    <div class="flex items-center space-x-3">
+                        <div id="quiz-avatar-icon" class="w-9 h-9 rounded-xl bg-rose-900/40 border border-rose-600/50 flex items-center justify-center text-rose-300 font-bold">
+                            <i class="fa-solid fa-hand text-base"></i>
+                        </div>
+                        <div>
+                            <h3 id="student-name" class="font-bold text-xs md:text-sm text-white">Estudiante #1</h3>
+                            <span id="student-topic" class="text-[10px] text-rose-400">Métodos de Barrera</span>
+                        </div>
+                    </div>
+                    <span id="quiz-level-badge" class="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-xl font-medium">Nivel 1 / 50</span>
+                </div>
+
+                <div class="space-y-2.5 shrink-0">
+                    <div class="bg-slate-950/90 p-3 rounded-xl border border-slate-800 animate-slide-right">
+                        <span class="text-[9px] uppercase font-semibold text-rose-400 tracking-wider block mb-0.5">Consulta del Estudiante</span>
+                        <p id="student-dialogue" class="text-[11px] md:text-xs text-slate-200 italic line-clamp-2">
+                            "Obstetra Mikaela, tengo una duda sobre la efectividad..."
+                        </p>
+                    </div>
+                    
+                    <h4 id="question-text" class="text-xs md:text-sm font-semibold text-white">
+                        ¿Cuál es la orientación obstétrica correcta?
+                    </h4>
+                </div>
+
+                <!-- Scrollable options container -->
+                <div id="options-container" class="grid grid-cols-1 gap-2 overflow-y-auto pr-1 flex-grow max-h-[28vh]">
+                    <!-- Injected via JS -->
+                </div>
+
+                <!-- Prominent, high-visibility Continue button footer -->
+                <div id="action-footer" class="hidden pt-3 border-t border-slate-800 flex justify-end shrink-0">
+                    <button onclick="nextStudentQuestion()" class="w-full md:w-auto px-8 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 text-sm tracking-wide transform hover:scale-[1.02]">
+                        <span>Continuar Clase</span>
+                        <i class="fa-solid fa-arrow-right text-base"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Results Screen -->
+            <div id="results-screen" class="interactive hidden bg-slate-900/98 backdrop-blur-md border border-slate-800 rounded-3xl p-8 shadow-2xl max-w-lg w-full text-center space-y-6 animate-slide-up">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-500/20 border-2 border-emerald-500/40 text-emerald-400 text-3xl mb-1">
+                    <i class="fa-solid fa-award"></i>
+                </div>
+                <h3 class="text-2xl font-extrabold text-white">¡Clase Completada con Éxito!</h3>
+                <p id="final-performance-msg" class="text-slate-300 text-xs md:text-sm max-w-md mx-auto">
+                    Has respondido las consultas de los 50 estudiantes en los 50 niveles del aula guiados por la Obstetra Mikaela.
+                </p>
+                <div class="grid grid-cols-3 gap-3 max-w-sm mx-auto">
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                        <span class="block text-[10px] text-slate-400">Puntaje</span>
+                        <span id="final-score" class="text-xl font-bold text-rose-400">0</span>
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                        <span class="block text-[10px] text-slate-400">Precisión</span>
+                        <span id="final-accuracy" class="text-xl font-bold text-emerald-400">0%</span>
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                        <span class="block text-[10px] text-slate-400">Racha</span>
+                        <span id="final-streak" class="text-xl font-bold text-amber-400">0</span>
+                    </div>
+                </div>
+                <button onclick="restartGame()" class="px-8 py-3 bg-rose-700 hover:bg-rose-600 text-white font-bold rounded-xl shadow-lg transition-all text-sm">
+                    <i class="fa-solid fa-rotate-right mr-2"></i> Repetir Clase 3D
+                </button>
+            </div>
+
+        </div>
+
+        <!-- Bottom Obstetrician Mikaela Feedback Bar -->
+        <footer class="interactive bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl p-4 shadow-2xl max-w-7xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-3 w-full md:w-auto">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-800 to-rose-600 flex items-center justify-center text-white font-bold shrink-0">
+                    <i class="fa-solid fa-user-doctor"></i>
+                </div>
+                <div>
+                    <h4 class="font-bold text-xs text-white flex items-center gap-1.5">
+                        Obstetra Mikaela <span class="text-[9px] bg-rose-900/50 text-rose-300 px-1 py-0.5 rounded">Guinda Scrubs</span>
+                    </h4>
+                    <p id="tutor-feedback-msg" class="text-[11px] text-slate-300 italic">"¡Bienvenidos a clase! Los 50 estudiantes están atentos en sus carpetas. Haz clic en el alumno que levante la mano."</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 w-full md:w-auto">
+                <input type="text" id="tutor-input" placeholder="Pregunta a la Obstetra Mikaela..." onkeydown="if(event.key==='Enter') askTutorAI()" class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 flex-grow md:w-64">
+                <button onclick="askTutorAI()" class="bg-rose-700 hover:bg-rose-600 text-white px-4 py-2 rounded-xl transition-all text-xs font-semibold shrink-0">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+        </footer>
+
+    </div>
+
+    <script>
+        // Three.js 3D Classroom Setup
+        let scene, camera, renderer;
+        let studentMeshes = [];
+        let raycaster, mouse;
+        
+        // Game State Variables
+        let score = 0;
+        let streak = 0;
+        let currentLevel = 1; // 1 to 50 levels
+        let totalCorrectAnswers = 0;
+        let totalAnsweredCount = 0;
+        let activeStudentIndex = null;
+        let isAnswerLocked = false;
+        let availableStudentsQueue = [];
+
+        // Database of 50 Student Cases covering Contraceptive Methods (MAC)
+        const studentCases = generate50StudentCases();
+
+        function generate50StudentCases() {
+            const names = [
+                "Mateo", "Valeria", "Carlos", "Lucía", "Diego", "Sofía", "Alejandro", "Camila", "Daniel", "Mariana",
+                "Joaquín", "Fernanda", "Gabriel", "Valentina", "Sebastián", "Renata", "Nicolás", "Isabella", "Emilio", "Victoria",
+                "Lucas", "Martina", "Santiago", "Antonella", "Maximiliano", "Catalina", "Adrián", "Julieta", "Bruno", "Emma",
+                "Thiago", "Abigail", "Samuel", "Bianca", "David", "Renata", "Joaquín", "Regina", "Felipe", "Jimena",
+                "Alonso", "Ariana", "Dante", "Florencia", "Iker", "Catalina", "Gael", "Mía", "Leonardo", "Zoe"
+            ];
+            const questionsPool = [
+                {
+                    topic: "Métodos de Barrera",
+                    question: "¿Cuál es la orientación obstétrica correcta sobre el preservativo masculino y femenino?",
+                    options: [
+                        { text: "Con uso correcto y consecutivo, tiene eficacia >98% frente a embarazos e ITS.", correct: true, explanation: "¡Correcto! El preservativo es el único método dual (evita embarazos e infecciones de transmisión sexual)." },
+                        { text: "Se deben usar dos condones simultáneamente para mayor resistencia.", correct: false, explanation: "Incorrecto. Duplicar condones aumenta la fricción y el riesgo de rotura por látex." },
+                        { text: "No protege contra ninguna infección de transmisión sexual.", correct: false, explanation: "Incorrecto. Es el principal método de barrera contra ITS." },
+                        { text: "Solo debe utilizarse una vez al año por normativa.", correct: false, explanation: "Incorrecto. Se emplea en cada relación sexual." }
+                    ],
+                    tip: "Los preservativos son pilares de la salud sexual por su doble protección."
+                },
+                {
+                    topic: "Anticonceptivos Hormonales",
+                    question: "¿Qué afirmación científica es verdadera sobre pastillas anticonceptivas o inyectables?",
+                    options: [
+                        { text: "No causan esterilidad permanente; la fertilidad se recupera inmediatamente tras suspenderlos.", correct: true, explanation: "¡Exacto! Son métodos reversibles seguros." },
+                        { text: "Provocan amnesia total permanente en adolescentes.", correct: false, explanation: "Incorrecto. No afectan el sistema neurológico central de esa forma." },
+                        { text: "Deben consumirse masticados con jugo de limón.", correct: false, explanation: "Incorrecto. Las tabletas se degluten con agua según pauta médica." },
+                        { text: "Reemplazan por completo las vacunas obligatorias.", correct: false, explanation: "Incorrecto. No tienen relación con inmunizaciones." }
+                    ],
+                    tip: "Los anticonceptivos hormonales regulan el ciclo y son altamente seguros y reversibles."
+                },
+                {
+                    topic: "Dispositivo Intrauterino (DIU)",
+                    question: "¿Cuál es una característica clave del DIU (T de Cobre u hormonal) en jóvenes?",
+                    options: [
+                        { text: "Es un método LARC de alta eficacia y larga duración, seguro en nulíparas informadas.", correct: true, explanation: "¡Perfecto! Los DIU modernos son altamente recomendados y seguros." },
+                        { text: "Impide totalmente la circulación sanguínea en las extremidades.", correct: false, explanation: "Incorrecto. El DIU actúa localmente en la cavidad uterina." },
+                        { text: "Se debe cambiar obligatoriamente cada semana.", correct: false, explanation: "Incorrecto. Su duración va de 3 a 10 años según el tipo." },
+                        { text: "Produce aumento automático de masa muscular.", correct: false, explanation: "Incorrecto. No es un anabólico muscular." }
+                    ],
+                    tip: "El DIU es un método reversible de larga duración (LARC)."
+                },
+                {
+                    topic: "Anticoncepción Oral de Emergencia",
+                    question: "¿Qué recomendación profesional debes dar sobre la pastilla del día siguiente (AOE)?",
+                    options: [
+                        { text: "Es un recurso de emergencia (dentro de las primeras 72-120h), no un método anticonceptivo regular.", correct: true, explanation: "¡Correcto! Su alta carga hormonal la hace exclusiva para emergencias." },
+                        { text: "Debe tomarse diariamente como desayuno para prevenir acné.", correct: false, explanation: "Incorrecto. Su uso crónico altera el ciclo menstrual severamente." },
+                        { text: "Garantiza inmunidad vitalicia frente a embarazos futuros.", correct: false, explanation: "Incorrecto. Solo previene el embarazo de la relación específica de riesgo." },
+                        { text: "Cura las infecciones por hongos vaginales.", correct: false, explanation: "Incorrecto. No tiene propiedades antimicóticas." }
+                    ],
+                    tip: "La AOE es rescate ante fallas de método, no sustituto de anticoncepción regular."
+                },
+                {
+                    topic: "Métodos Naturales de Conteo",
+                    question: "¿Qué limitación principal tienen los métodos naturales (ritmo, calendario) en la adolescencia?",
+                    options: [
+                        { text: "Tienen alta tasa de fallo debido a la irregularidad fisiológica típica del ciclo menstrual juvenil.", correct: true, explanation: "¡Excelente! En la adolescencia los ciclos suelen ser irregulares, haciendo impreciso el conteo." },
+                        { text: "Son obligatorios por ley ministerial en todos los colegios.", correct: false, explanation: "Incorrecto. El acceso a MAC es voluntario e informado." },
+                        { text: "Requieren aparatos láser de alta tecnología costosos.", correct: false, explanation: "Incorrecto. Solo requieren registro de días." },
+                        { text: "Eliminan el deseo de estudiar matemáticas.", correct: false, explanation: "Incorrecto. No tienen efectos cognitivos." }
+                    ],
+                    tip: "Los métodos naturales exigen ciclos regulares y alta disciplina."
+                }
+            ];
+
+            let cases = [];
+            for (let i = 0; i < 50; i++) {
+                let poolItem = questionsPool[i % questionsPool.length];
+                cases.push({
+                    id: i + 1,
+                    studentName: names[i],
+                    seatInfo: `Fila ${Math.floor(i / 10) + 1}, Pupitre ${(i % 10) + 1}`,
+                    topic: poolItem.topic,
+                    dialogue: `Obstetra Mikaela, tengo una consulta sobre ${poolItem.topic.toLowerCase()}. ${poolItem.tip}`,
+                    question: poolItem.question,
+                    options: poolItem.options,
+                    tutorTip: poolItem.tip
+                });
+            }
+            return cases;
+        }
+
+        window.onload = function() {
+            initThreeJS();
+            animate();
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function initThreeJS() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0f172a); // Slate-950 classroom ambiance
+            scene.fog = new THREE.FogExp2(0x0f172a, 0.02);
+
+            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 15, 24);
+            camera.lookAt(0, 3, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Classroom Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xfff5e6, 0.9);
+            dirLight.position.set(10, 25, 15);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+
+            // --- CLASSROOM STRUCTURE (Walls, Floor, Ceiling, Blackboard) ---
+            
+            // Floor
+            const floorGeo = new THREE.BoxGeometry(32, 0.5, 30);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.position.set(0, -0.75, -2);
+            scene.add(floor);
+
+            // Back Wall
+            const backWallGeo = new THREE.BoxGeometry(32, 18, 0.6);
+            const backWallMat = new THREE.MeshStandardMaterial({ color: 0x090d16 });
+            const backWall = new THREE.Mesh(backWallGeo, backWallMat);
+            backWall.position.set(0, 8.5, -17);
+            scene.add(backWall);
+
+            // Left Wall
+            const sideWallGeo = new THREE.BoxGeometry(0.6, 18, 30);
+            const sideWallMat = new THREE.MeshStandardMaterial({ color: 0x0f172a });
+            const leftWall = new THREE.Mesh(sideWallGeo, sideWallMat);
+            leftWall.position.set(-16, 8.5, -2);
+            scene.add(leftWall);
+
+            // Right Wall
+            const rightWall = new THREE.Mesh(sideWallGeo, sideWallMat);
+            rightWall.position.set(16, 8.5, -2);
+            scene.add(rightWall);
+
+            // Blackboard on Back Wall
+            const boardGeo = new THREE.BoxGeometry(14, 5, 0.2);
+            const boardMat = new THREE.MeshStandardMaterial({ color: 0x064e3b, roughness: 0.5 }); // Dark green school board
+            const board = new THREE.Mesh(boardGeo, boardMat);
+            board.position.set(0, 7, -16.6);
+            scene.add(board);
+
+            // Teacher's Desk & Obstetrician Mikaela at the Front
+            const teacherDeskGeo = new THREE.BoxGeometry(4, 1.6, 2);
+            const teacherDeskMat = new THREE.MeshStandardMaterial({ color: 0x334155 });
+            const teacherDesk = new THREE.Mesh(teacherDeskGeo, teacherDeskMat);
+            teacherDesk.position.set(0, 0.3, 4);
+            scene.add(teacherDesk);
+
+            // Obstetrician Mikaela (Standing in Burgundy Scrubs / Guinda at Front)
+            const mikaelaGroup = createObstetricianMikaela();
+            mikaelaGroup.position.set(0, 0, 2.6);
+            scene.add(mikaelaGroup);
+
+            // Generate 50 Fully Modeled Students in 5 Rows of 10 desks
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            let studentIndex = 0;
+            for (let row = 0; row < 5; row++) {
+                for (let desk = 0; desk < 10; desk++) {
+                    if (studentIndex >= 50) break;
+
+                    let xPos = (desk - 4.5) * 2.5;
+                    let zPos = -2 - (row * 2.8);
+                    let yPos = row * 0.4; // slight tiered elevation if desired, or flat floor
+
+                    let studentGroup = createFullyModeledStudent(studentIndex);
+                    studentGroup.position.set(xPos, yPos, zPos);
+                    studentGroup.userData = { studentId: studentIndex };
+                    scene.add(studentGroup);
+                    studentMeshes.push(studentGroup);
+
+                    studentIndex++;
+                }
+            }
+
+            window.addEventListener('click', onDocumentClick, false);
+        }
+
+        // Obstetrician Mikaela in Burgundy Scrubs (Guinda)
+        function createObstetricianMikaela() {
+            const group = new THREE.Group();
+
+            // Burgundy/Guinda Scrubs Torso
+            const torsoGeo = new THREE.BoxGeometry(0.9, 1.2, 0.6);
+            const torsoMat = new THREE.MeshStandardMaterial({ color: 0x831843 }); // Guinda / Burgundy
+            const torso = new THREE.Mesh(torsoGeo, torsoMat);
+            torso.position.set(0, 1.2, 0);
+            group.add(torso);
+
+            // Head
+            const headGeo = new THREE.SphereGeometry(0.38, 16, 16);
+            const headMat = new THREE.MeshStandardMaterial({ color: 0xffdbac });
+            const head = new THREE.Mesh(headGeo, headMat);
+            head.position.set(0, 2.05, 0);
+            group.add(head);
+
+            // Hair
+            const hairGeo = new THREE.SphereGeometry(0.4, 16, 16);
+            const hairMat = new THREE.MeshStandardMaterial({ color: 0x451a03 }); // Dark brown hair
+            const hair = new THREE.Mesh(hairGeo, hairMat);
+            hair.position.set(0, 2.15, -0.05);
+            group.add(hair);
+
+            // Eyes
+            const eyeGeo = new THREE.SphereGeometry(0.06, 8, 8);
+            const eyeMat = new THREE.MeshStandardMaterial({ color: 0x1e293b });
+            const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+            eyeL.position.set(0.12, 2.1, 0.32);
+            const eyeR = eyeL.clone();
+            eyeR.position.set(-0.12, 2.1, 0.32);
+            group.add(eyeL);
+            group.add(eyeR);
+
+            // Arms & Hands
+            const armGeo = new THREE.BoxGeometry(0.3, 0.9, 0.3);
+            const armMat = new THREE.MeshStandardMaterial({ color: 0x831843 });
+            const armL = new THREE.Mesh(armGeo, armMat);
+            armL.position.set(0.65, 1.1, 0);
+            const armR = armL.clone();
+            armR.position.set(-0.65, 1.1, 0);
+            group.add(armL);
+            group.add(armR);
+
+            const handGeo = new THREE.SphereGeometry(0.12, 8, 8);
+            const handMat = new THREE.MeshStandardMaterial({ color: 0xffdbac });
+            const handL = new THREE.Mesh(handGeo, handMat);
+            handL.position.set(0.65, 0.6, 0);
+            const handR = handL.clone();
+            handR.position.set(-0.65, 0.6, 0);
+            group.add(handL);
+            group.add(handR);
+
+            // Legs & Feet
+            const legGeo = new THREE.BoxGeometry(0.35, 1.1, 0.35);
+            const legMat = new THREE.MeshStandardMaterial({ color: 0x581c87 }); // matching scrubs pant
+            const legL = new THREE.Mesh(legGeo, legMat);
+            legL.position.set(0.22, 0.3, 0);
+            const legR = legL.clone();
+            legR.position.set(-0.22, 0.3, 0);
+            group.add(legL);
+            group.add(legR);
+
+            const footGeo = new THREE.BoxGeometry(0.36, 0.2, 0.45);
+            const footMat = new THREE.MeshStandardMaterial({ color: 0x0f172a });
+            const footL = new THREE.Mesh(footGeo, footMat);
+            footL.position.set(0.22, -0.2, 0.05);
+            const footR = footL.clone();
+            footR.position.set(-0.22, -0.2, 0.05);
+            group.add(footL);
+            group.add(footR);
+
+            return group;
+        }
+
+        // Fully Modeled Student Character with head/hair, eyes, arms/hands, torso, and legs/feet
+        function createFullyModeledStudent(index) {
+            const group = new THREE.Group();
+
+            const shirtColors = [0x38bdf8, 0xf43f5e, 0xa855f7, 0x10b981, 0xf59e0b, 0x6366f1, 0xec4899, 0x14b8a6, 0x3b82f6, 0xeab308];
+            
+            // School Desk & Chair
+            const deskGeo = new THREE.BoxGeometry(1.2, 0.8, 0.8);
+            const deskMat = new THREE.MeshStandardMaterial({ color: 0x475569 });
+            const desk = new THREE.Mesh(deskGeo, deskMat);
+            desk.position.set(0, 0.4, 0.6);
+            group.add(desk);
+
+            // Torso (Seated)
+            const torsoGeo = new THREE.BoxGeometry(0.65, 0.8, 0.45);
+            const torsoMat = new THREE.MeshStandardMaterial({ color: shirtColors[index % shirtColors.length] });
+            const torso = new THREE.Mesh(torsoGeo, torsoMat);
+            torso.position.set(0, 0.8, 0);
+            group.add(torso);
+
+            // Head
+            const headGeo = new THREE.SphereGeometry(0.3, 16, 16);
+            const headMat = new THREE.MeshStandardMaterial({ color: index % 2 === 0 ? 0xffdbac : index % 3 === 0 ? 0xdc9a6d : 0x8d5524 });
+            const head = new THREE.Mesh(headGeo, headMat);
+            head.position.set(0, 1.45, 0);
+            group.add(head);
+
+            // Hair
+            const hairGeo = new THREE.SphereGeometry(0.32, 14, 14);
+            const hairMat = new THREE.MeshStandardMaterial({ color: index % 4 === 0 ? 0x1e293b : index % 2 === 0 ? 0xb45309 : 0x111827 });
+            const hair = new THREE.Mesh(hairGeo, hairMat);
+            hair.position.set(0, 1.55, -0.04);
+            group.add(hair);
+
+            // Eyes
+            const eyeGeo = new THREE.SphereGeometry(0.045, 8, 8);
+            const eyeMat = new THREE.MeshStandardMaterial({ color: 0x0f172a });
+            const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+            eyeL.position.set(0.1, 1.44, 0.26);
+            const eyeR = eyeL.clone();
+            eyeR.position.set(-0.1, 1.44, 0.26);
+            group.add(eyeL);
+            group.add(eyeR);
+
+            // Left Arm & Hand (resting on desk)
+            const armGeo = new THREE.BoxGeometry(0.22, 0.6, 0.22);
+            const armMat = new THREE.MeshStandardMaterial({ color: shirtColors[index % shirtColors.length] });
+            const armL = new THREE.Mesh(armGeo, armMat);
+            armL.position.set(0.42, 0.8, 0.3);
+            group.add(armL);
+
+            // Right Arm / Raised Hand Indicator
+            const handGeo = new THREE.SphereGeometry(0.14, 10, 10);
+            const handMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xca8a04, emissiveIntensity: 0.7 });
+            const handR = new THREE.Mesh(handGeo, handMat);
+            handR.position.set(-0.45, 1.3, 0.2);
+            handR.visible = false; // Raised hand toggle
+            group.add(handR);
+
+            // Legs & Feet (Seated posture)
+            const upperLegGeo = new THREE.BoxGeometry(0.25, 0.22, 0.6);
+            const legMat = new THREE.MeshStandardMaterial({ color: 0x1e293b });
+            const legL = new THREE.Mesh(upperLegGeo, legMat);
+            legL.position.set(0.16, 0.45, 0.35);
+            const legR = legL.clone();
+            legR.position.set(-0.16, 0.45, 0.35);
+            group.add(legL);
+            group.add(legR);
+
+            const lowerLegGeo = new THREE.BoxGeometry(0.24, 0.5, 0.24);
+            const lowerL = new THREE.Mesh(lowerLegGeo, legMat);
+            lowerL.position.set(0.16, 0.15, 0.62);
+            const lowerR = lowerL.clone();
+            lowerR.position.set(-0.16, 0.15, 0.62);
+            group.add(lowerL);
+            group.add(lowerR);
+
+            const footGeo = new THREE.BoxGeometry(0.26, 0.15, 0.35);
+            const footMat = new THREE.MeshStandardMaterial({ color: 0x0f0f0f });
+            const footL = new THREE.Mesh(footGeo, footMat);
+            footL.position.set(0.16, -0.08, 0.68);
+            const footR = footL.clone();
+            footR.position.set(-0.16, -0.08, 0.68);
+            group.add(footL);
+            group.add(footR);
+
+            return group;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Animate students with active raised hands
+            studentMeshes.forEach((mesh, idx) => {
+                let handMesh = mesh.children[6]; // index 6 is handR
+                if (handMesh.visible) {
+                    handMesh.position.y = 1.3 + Math.sin(Date.now() * 0.009 + idx) * 0.15;
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function startGame() {
+            document.getElementById('start-screen').classList.add('hidden');
+            score = 0;
+            streak = 0;
+            currentLevel = 1;
+            totalCorrectAnswers = 0;
+            totalAnsweredCount = 0;
+            
+            setupLevelQueue();
+            updateUI();
+            updateTutorMessage("¡Clase iniciada! Observa los 50 estudiantes en el aula y quién levanta la mano.");
+        }
+
+        function setupLevelQueue() {
+            availableStudentsQueue = [];
+            // In 50 levels mode, each level corresponds to 1 student from the 50 students
+            for (let i = 0; i < 50; i++) {
+                availableStudentsQueue.push(i);
+            }
+            triggerRandomHandRaise();
+        }
+
+        function triggerRandomHandRaise() {
+            // Hide all hands first
+            studentMeshes.forEach(m => m.children[6].visible = false);
+
+            if (currentLevel > 50) {
+                showResultsScreen();
+                return;
+            }
+
+            // Pick student for current level
+            activeStudentIndex = (currentLevel - 1) % 50;
+
+            // Show raised hand for this student
+            studentMeshes[activeStudentIndex].children[6].visible = true;
+            let student = studentCases[activeStudentIndex];
+            updateTutorMessage(`¡El alumno ${student.studentName} (${student.seatInfo}) ha levantado la mano en clase! Haz clic sobre él.`);
+        }
+
+        function onDocumentClick(event) {
+            if (document.getElementById('quiz-container').classList.contains('hidden') === false) return;
+            if (document.getElementById('start-screen').classList.contains('hidden') === false) return;
+            if (activeStudentIndex === null) return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            if (intersects.length > 0) {
+                let obj = intersects[0].object;
+                while (obj.parent && !obj.userData.hasOwnProperty('studentId')) {
+                    obj = obj.parent;
+                }
+                if (obj.userData && obj.userData.hasOwnProperty('studentId')) {
+                    let clickedId = obj.userData.studentId;
+                    if (clickedId === activeStudentIndex) {
+                        openQuizModal(activeStudentIndex);
+                    }
+                }
+            }
+        }
+
+        function openQuizModal(studentIdx) {
+            isAnswerLocked = false;
+            document.getElementById('action-footer').classList.add('hidden');
+            const quizContainer = document.getElementById('quiz-container');
+            quizContainer.classList.remove('hidden');
+
+            const currentCase = studentCases[studentIdx];
+            document.getElementById('level-display').innerText = `${currentLevel} / 50`;
+            document.getElementById('quiz-level-badge').innerText = `Nivel ${currentLevel} / 50 - Alumno #${studentIdx + 1}`;
+            document.getElementById('student-name').innerText = `${currentCase.studentName} (${currentCase.seatInfo})`;
+            document.getElementById('student-topic').innerText = currentCase.topic;
+            document.getElementById('student-dialogue').innerText = `"${currentCase.dialogue}"`;
+            document.getElementById('question-text').innerText = currentCase.question;
+
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
+
+            const shuffledOptions = [...currentCase.options].sort(() => Math.random() - 0.5);
+
+            shuffledOptions.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left p-3 rounded-xl bg-slate-950/90 border border-slate-800 hover:border-rose-500 hover:bg-slate-900 transition-all text-xs md:text-sm text-slate-200 flex items-start gap-3 group animate-slide-right shadow-md";
+                btn.style.animationDelay = `${idx * 0.06}s`;
+                btn.innerHTML = `
+                    <span class="w-5 h-5 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-300 group-hover:bg-rose-700 group-hover:text-white transition-all shrink-0 mt-0.5">${String.fromCharCode(65 + idx)}</span>
+                    <span class="leading-relaxed">${opt.text}</span>
+                `;
+                btn.onclick = () => handleAnswer(opt, btn);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function handleAnswer(selectedOption, buttonElement) {
+            if (isAnswerLocked) return;
+            isAnswerLocked = true;
+
+            const currentCase = studentCases[activeStudentIndex];
+            const allButtons = document.getElementById('options-container').querySelectorAll('button');
+
+            allButtons.forEach(btn => {
+                btn.disabled = true;
+                const textSpan = btn.querySelector('span:last-child').innerText;
+                const matchesCorrect = currentCase.options.find(o => o.text === textSpan && o.correct);
+                if (matchesCorrect) {
+                    btn.classList.remove('bg-slate-950/90', 'border-slate-800');
+                    btn.classList.add('bg-emerald-950/60', 'border-emerald-500', 'text-emerald-100', 'font-semibold');
+                } else if (btn === buttonElement && !selectedOption.correct) {
+                    btn.classList.remove('bg-slate-950/90', 'border-slate-800');
+                    btn.classList.add('bg-rose-950/60', 'border-rose-500', 'text-rose-100');
+                }
+            });
+
+            totalAnsweredCount++;
+            if (selectedOption.correct) {
+                score += 20 + (streak * 5);
+                streak++;
+                totalCorrectAnswers++;
+                updateTutorMessage(`¡Excelente explicación de la Obstetra Mikaela! ${selectedOption.explanation}`);
+            } else {
+                streak = 0;
+                updateTutorMessage(`Respuesta incorrecta. ${selectedOption.explanation}`);
+            }
+
+            updateUI();
+            
+            // Show prominent continue button
+            const actionFooter = document.getElementById('action-footer');
+            actionFooter.classList.remove('hidden');
+            actionFooter.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function nextStudentQuestion() {
+            document.getElementById('quiz-container').classList.add('hidden');
+            if (activeStudentIndex !== null) {
+                studentMeshes[activeStudentIndex].children[6].visible = false;
+                activeStudentIndex = null;
+            }
+
+            currentLevel++;
+            if (currentLevel > 50) {
+                showResultsScreen();
+            } else {
+                triggerRandomHandRaise();
+            }
+        }
+
+        function showResultsScreen() {
+            document.getElementById('results-screen').classList.remove('hidden');
+            document.getElementById('final-score').innerText = score;
+            const accuracy = Math.round((totalCorrectAnswers / 50) * 100);
+            document.getElementById('final-accuracy').innerText = `${accuracy}%`;
+            document.getElementById('final-streak').innerText = streak;
+            updateTutorMessage(`¡Los 50 niveles completados! La Obstetra Mikaela felicita a todo el aula por su gran desempeño.`);
+        }
+
+        function restartGame() {
+            document.getElementById('results-screen').classList.add('hidden');
+            startGame();
+        }
+
+        function updateUI() {
+            document.getElementById('score-display').innerText = score;
+            document.getElementById('level-display').innerText = `${currentLevel} / 50`;
+            document.getElementById('streak-display').innerText = `🔥 ${streak}`;
+        }
+
+        function updateTutorMessage(text) {
+            document.getElementById('tutor-feedback-msg').innerText = `"${text}"`;
+        }
+
+        function askTutorAI() {
+            const input = document.getElementById('tutor-input');
+            const q = input.value.trim();
+            if (!q) return;
+            input.value = '';
+
+            let response = "La Obstetra Mikaela recuerda que la consejería en salud sexual requiere empatía, rigor científico y confidencialidad en el aula.";
+            const qLower = q.toLowerCase();
+            if (qLower.includes('condon') || qLower.includes('barrera')) {
+                response = "El preservativo es el único método anticonceptivo que ofrece doble protección frente a embarazos y contra las ITS.";
+            } else if (qLower.includes('pastilla') || qLower.includes('hormon')) {
+                response = "Los anticonceptivos hormonales regulan el ciclo y su efecto es totalmente reversible tras su suspensión.";
+            } else if (qLower.includes('emergencia')) {
+                response = "La anticoncepción oral de emergencia es un recurso de rescate exclusivo para situaciones imprevistas.";
+            }
+            updateTutorMessage(response);
+        }
+    </script>
+</body>
+</html>
